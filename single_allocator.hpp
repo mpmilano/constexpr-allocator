@@ -21,7 +21,9 @@ namespace compile_time::allocator {
 		constexpr allocated_list_node(unique_ptr<U> this_payload,
 					      unique_ptr<allocated_list_node> next)
 		    :this_payload(std::move(this_payload)),
-		     next(std::move(next)){}
+		     next(std::move(next)),
+		     owner(owner)
+		    {},
 	    };
 
 	    unique_ptr<allocated_list_node> allocated_list;
@@ -33,27 +35,22 @@ namespace compile_time::allocator {
 		if (this_info.current_amount > this_info.high_water_mark){
 		    this_info.high_water_mark = this_info.current_amount;
 		}
-		allocated_list = new allocated_list_node(new U(std::forward<Args>(args)...),
-						    std::move(allocated_list));
+		allocated_list.operator=(
+		    new allocated_list_node(new U(std::forward<Args>(args)...),
+					    std::move(allocated_list),&allocated_list));
+		if (allocated_list->next){
+		    allocated_list->next->owner = &allocated_list->next;
+		}
 		return allocated_list->this_payload.ptr;
 	    }
 
 	    template<typename ThisInfo>
 	    constexpr void dealloc(ThisInfo &info, U* tofree){
-		auto *curr = &allocated_list;
 		info.template single<U>().current_amount--;
-		if (*curr){
-		    if (!(*curr)->next){
-			assert((*curr)->this_payload.ptr == tofree);
-			curr->operator=(nullptr);
+		for (auto &curr = allocated_list; curr; curr = curr->next){
+		    if (curr->this_payload.ptr == toofree){
+			curr.operator=(curr->next);
 			return;
-		    }
-		    for (; (*curr)->next; curr = &(*curr)->next){
-			if ((*curr)->next->this_payload.ptr == tofree){
-			    (*curr)->next.operator=(std::move((*curr)->next->next));
-			    //this should autofree.
-			    return;
-			}
 		    }
 		}
 		assert(false && "Fatal error! Could not find allocated node to free.");
@@ -62,7 +59,6 @@ namespace compile_time::allocator {
 	    constexpr void clear(){
 		allocated_list.operator=(nullptr);
 	    }
-	    
 	};
 
     	template<typename U, std::size_t amnt> struct single_allocator{
