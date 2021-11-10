@@ -93,26 +93,30 @@ namespace compile_time::allocator {
 	  struct free_list_node : public destructor<U>{
 	      free_list_node* next {nullptr};
 	      U this_payload;
-	      single_allocator *parent{nullptr};
-	      constexpr free_list_node() = default;
+	    free_list_node ** free_list{nullptr};
+	    constexpr free_list_node() = default;
+	    constexpr free_list_node(const free_list_node&) = delete;
+	    constexpr free_list_node(free_list_node&&) = delete;
 	      constexpr ~free_list_node() = default;
 
 	    constexpr void destroy(U* _this){
 	      assert(_this == &this_payload);
-	      assert(parent);
-	      next = parent->free_list;
-	      parent->free_list = this;
+	      assert(free_list);
+	      next = *free_list;
+	      *free_list = this;
 	    }
 	    };
 	    
-	    free_list_node free_list_storage[amnt] = {free_list_node{}};
+	  free_list_node free_list_storage[amnt];
 	    //remember: guaranteed amnt > 0
 	    free_list_node *free_list = &free_list_storage[0];
 	    
 	    constexpr single_allocator(){
 		for (auto i = 0u; i + 1 < amnt; ++i){
 		    free_list_storage[i].next = &free_list_storage[i+1];
-		    free_list_storage[i].parent = this;
+		}
+		for (auto &ln : free_list_storage){
+		  ln.free_list = &free_list;
 		}
 	    }
 

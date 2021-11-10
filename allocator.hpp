@@ -54,7 +54,11 @@ namespace compile_time::allocator{
 	      allocated_ptr<U> result;
 		template<typename F>
 		constexpr execution_result(F&& f):result(f(allocations)){}
-		constexpr ~execution_result() = default;
+	      constexpr ~execution_result() {
+		//want to make extra sure this is empty before we try
+		//to do any allocator destruction!
+		result.clear();
+	      }
 	    };
 
 	  template<typename F, F f, typename U>

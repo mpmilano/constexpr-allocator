@@ -33,20 +33,19 @@ namespace compile_time{
 	    constexpr unique_ptr& operator=(const unique_ptr&) = delete;
 	    
 	    constexpr unique_ptr& operator=(unique_ptr&& o){
-	      if (!std::is_constant_evaluated() && ptr) {
-		std::cout << "Freeing pointer " << ptr << std::endl;
-	      }
 		if (ptr) delete ptr;
 		ptr = o.ptr;
 		o.ptr = nullptr;
 		return *this;
 	    }
+
+	  constexpr void clear(){
+	    operator=(nullptr);
+	  }
 	    
 	    constexpr ~unique_ptr(){
 		if (ptr) delete ptr;
 	    }
-
-	    constexpr void clear(){}
 	};
 
 //trouble here: we want to be able to recursively destruct, which
