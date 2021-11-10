@@ -35,12 +35,15 @@ namespace compile_time::allocator {
 	      {}
 	      
 	    constexpr void destroy(U* tofree){
+	      assert(info.current_amount > 0);
+	      assert(info.current_amount < 1239);
 	      info.current_amount--;
 	      assert(this_payload.ptr == tofree);
 	      assert(owner->ptr = this);
 	      if (next){
 		next->owner = owner;
 		//this will destroy the *current object*
+		assert(owner != &next);
 		owner->operator=(std::move(next));
 	      }
 	      else{

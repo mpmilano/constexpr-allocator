@@ -1,4 +1,6 @@
 #pragma once
+#include <iostream>
+#include <type_traits>
 
 namespace compile_time{
     	template<typename T>
@@ -31,6 +33,9 @@ namespace compile_time{
 	    constexpr unique_ptr& operator=(const unique_ptr&) = delete;
 	    
 	    constexpr unique_ptr& operator=(unique_ptr&& o){
+	      if (!std::is_constant_evaluated() && ptr) {
+		std::cout << "Freeing pointer " << ptr << std::endl;
+	      }
 		if (ptr) delete ptr;
 		ptr = o.ptr;
 		o.ptr = nullptr;
@@ -98,7 +103,11 @@ namespace compile_time{
 	  constexpr void clear(){
 	    if (ptr){
 	      assert(destroyer);
-	      destroyer->destroy(ptr);
+	      auto *sptr = ptr;
+	      auto *sdestroyer = destroyer;
+	      ptr = nullptr;
+	      destroyer = nullptr;
+	      sdestroyer->destroy(sptr);
 	    }
 	    else {assert (!destroyer);}
 	  }
