@@ -18,6 +18,22 @@ constexpr auto allocator_actions(auto &a){
   return a.template alloc<double>(tmp);  
 }
 
+struct tree{
+  int payload;
+  allocated_ptr<tree> left;
+  allocated_ptr<tree> right;
+  constexpr tree(int p, allocated_ptr<tree> left, allocated_ptr<tree> right)
+    :payload(p),
+     left(std::move(left)),
+     right(std::move(right)){}
+  constexpr ~tree() = default;
+};
+
+constexpr auto tree_test(auto &a){
+  #define TREE  a.template alloc<tree>
+  return TREE(0,TREE(1,nullptr,nullptr),TREE(2,nullptr,nullptr));
+}
+
 int main(){
 
   //dynamic test 1
@@ -25,6 +41,15 @@ int main(){
     ts::allocator<ts::ThisInfo{}> a;
     {
       auto result = allocator_actions(a);
+    }
+  }
+
+  //dynamic test 2
+  {
+    using tree_ts = typespace<tree>;
+    tree_ts::allocator<tree_ts::ThisInfo{}> a;
+    {
+      auto result = tree_test(a);
     }
   }
 

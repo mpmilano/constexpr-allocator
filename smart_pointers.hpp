@@ -68,6 +68,7 @@ namespace compile_time{
 	  destructor<T> *destroyer{nullptr};
 
 	    constexpr allocated_ptr() = default;
+	  constexpr allocated_ptr(std::nullptr_t):allocated_ptr(){}
 	  constexpr allocated_ptr(T* ptr, destructor<T>* destroyer):ptr(ptr),destroyer(destroyer){}
 	    constexpr allocated_ptr(const allocated_ptr&) = delete;
 	  constexpr allocated_ptr(allocated_ptr&& o):ptr(o.ptr),destroyer(o.destroyer){
