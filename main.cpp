@@ -10,8 +10,8 @@ int main(){
 	auto one = a.template alloc<int>(5);
 	auto two = a.template alloc<double>(2.0);
 	auto tmp = *one + *two;
-	a.dealloc(one);
-	a.dealloc(two);
+	one.clear();
+	two.clear();
 	return a.template alloc<double>(tmp);
     });
     return *result.result;

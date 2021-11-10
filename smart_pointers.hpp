@@ -61,10 +61,10 @@ namespace compile_time{
 	template<typename T>
 	struct allocated_ptr{
 	  T* ptr{nullptr};
-	  destructor *destroyer{nullptr};
+	  destructor<T> *destroyer{nullptr};
 
 	    constexpr allocated_ptr() = default;
-	  constexpr allocated_ptr(T* ptr, destructor* destroyer):ptr(ptr),destroyer(destroyer){}
+	  constexpr allocated_ptr(T* ptr, destructor<T>* destroyer):ptr(ptr),destroyer(destroyer){}
 	    constexpr allocated_ptr(const allocated_ptr&) = delete;
 	  constexpr allocated_ptr(allocated_ptr&& o):ptr(o.ptr),destroyer(o.destroyer){
 	    o.ptr = nullptr;
@@ -116,7 +116,7 @@ namespace compile_time{
 	    clear();
 	  }
 
-	}
+	};
     }
 
 }
