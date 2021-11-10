@@ -9,25 +9,42 @@
 
 namespace compile_time::allocator {
 
+ 
+
     template<typename U, std::size_t amnt> struct single_allocator;
 	template<typename U> struct single_allocator<U, 0>{
 	    //initial allocations.  Find and track high water mark.
 
-	    struct allocated_list_node{
+	  struct allocated_list_node : public destructor<U>{
+	    
 		constexpr allocated_list_node() = default;
 		constexpr ~allocated_list_node() = default;
+	    single_allocator *parent{nullptr};
 		unique_ptr<U> this_payload;
 		unique_ptr<allocated_list_node> next;
-		constexpr allocated_list_node(unique_ptr<U> this_payload,
-					      unique_ptr<allocated_list_node> next)
-		    :this_payload(std::move(this_payload)),
-		     next(std::move(next)),
-		     owner(owner)
-		    {},
-	    };
-
-	    unique_ptr<allocated_list_node> allocated_list;
+	      unique_ptr<allocated_list_node> *owner;
+	    constexpr allocated_list_node(single_allocator *parent,
+					  unique_ptr<U> this_payload,
+					  unique_ptr<allocated_list_node> next,
+					  unique_ptr<allocated_list_node> *owner)
+	      :parent(parent),
+	       this_payload(std::move(this_payload)),
+	       next(std::move(next)),
+	       owner(owner)
+	      {}
+	      
+	    constexpr void destroy(U* toofree){
+	      assert(this_payload.ptr == toofree);
+	      assert(owner->ptr = this);
+	      next->owner = owner;
+	      //this will destroy the *current object*
+	      this_owner->operator=(next);
+	    }
 	    
+	  };
+
+	  unique_ptr<allocated_list_node> allocated_list;
+
 	    template<typename ThisInfo, typename... Args>
 	    constexpr U* alloc(ThisInfo &info, Args && ...args) {
 		auto &this_info = info.template single<U>();
@@ -49,8 +66,7 @@ namespace compile_time::allocator {
 		info.template single<U>().current_amount--;
 		for (auto &curr = allocated_list; curr; curr = curr->next){
 		    if (curr->this_payload.ptr == toofree){
-			curr.operator=(curr->next);
-			return;
+		      curr->destroy(tofree);
 		    }
 		}
 		assert(false && "Fatal error! Could not find allocated node to free.");
@@ -64,11 +80,21 @@ namespace compile_time::allocator {
     	template<typename U, std::size_t amnt> struct single_allocator{
 	    //the exact-size case
 
-	    struct free_list_node{
-		free_list_node* next = nullptr;
-		U this_payload;
-		constexpr free_list_node() = default;
-		constexpr ~free_list_node() = default;
+	  struct free_list_node : public destructor<U>{
+	      free_list_node* next {nullptr};
+	      U this_payload;
+	      single_allocator *parent{nullptr};
+	      std::size_t my_index{0};
+	      constexpr free_list_node() = default;
+	      constexpr ~free_list_node() = default;
+
+	    constexpr void destroy(U* _this){
+	      assert(_this == &this_payload);
+	      assert(parent);
+	      assert(&parent->free_list_storage[my_index] == this);
+	      next = parent->free_list;
+	      parent->free_list = this;
+	    }
 	    };
 	    
 	    free_list_node free_list_storage[amnt] = {free_list_node{}};
@@ -78,6 +104,8 @@ namespace compile_time::allocator {
 	    constexpr single_allocator(){
 		for (auto i = 0u; i + 1 < amnt; ++i){
 		    free_list_storage[i].next = &free_list_storage[i+1];
+		    free_list_storage[i].parent = this;
+		    free_list_storage[i].my_index = i;
 		}
 	    }
 
@@ -104,17 +132,12 @@ namespace compile_time::allocator {
 		return &_alloc(std::forward<Args>(args)...)->this_payload;
 	    }
 
-	    constexpr void _dealloc(free_list_node* tofree){
-		tofree->next = free_list;
-		free_list = tofree;
-	    }
-
 	    constexpr void dealloc(auto&&, U* tofree){
 		//inefficient, probably, but w/e can't do better
 		//without fancy pointers.
 		for (auto &potential_freed_node : free_list_storage){
 		    if (tofree == &potential_freed_node.this_payload){
-			_dealloc(&potential_freed_node);
+		      potential_freed_node->destroy(tofree);
 		    }
 		}
 	    }

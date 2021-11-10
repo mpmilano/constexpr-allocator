@@ -52,15 +52,24 @@ namespace compile_time{
     //Best solution: turns out it's constexpr and we do capture it. 
     
     namespace allocator {
+
+      template<typename T> struct destructor{
+	constexpr virtual void destroy(T* t) = 0;
+	constexpr virtual ~destructor() = default;
+      };
 	
 	template<typename T>
 	struct allocated_ptr{
-	    T* ptr{nullptr};
+	  T* ptr{nullptr};
+	  destructor *destroyer{nullptr};
 
 	    constexpr allocated_ptr() = default;
-	    constexpr allocated_ptr(T* ptr):ptr(ptr){}
+	  constexpr allocated_ptr(T* ptr, destructor* destroyer):ptr(ptr),destroyer(destroyer){}
 	    constexpr allocated_ptr(const allocated_ptr&) = delete;
-	    constexpr allocated_ptr(allocated_ptr&& o):ptr(o.ptr){o.ptr = nullptr;}
+	  constexpr allocated_ptr(allocated_ptr&& o):ptr(o.ptr),destroyer(o.destroyer){
+	    o.ptr = nullptr;
+	    o.destroyer = nullptr;
+	  }
 	    
 	    constexpr T& operator*(){
 		return *ptr;
@@ -78,25 +87,34 @@ namespace compile_time{
 		return ptr;
 	    }
 
-	    constexpr operator bool() const { return ptr; }
+	  constexpr operator bool() const {
+	    assert(ptr ? destroyer : true);
+	    assert(destroyer ? ptr : true);
+	    return ptr;
+	  }
 
 	    constexpr allocated_ptr& operator=(const allocated_ptr&) = delete;
-	    
-	    constexpr allocated_ptr& operator=(allocated_ptr&& o){
-		assert(!ptr); //need to explicitly clear first, b/c needs ref to allocator!
-		ptr = o.ptr;
-		o.ptr = nullptr;
-		return *this;
-	    }
 
-	    
-	    constexpr void clear(auto& allocator){
-		allocator.dealloc(ptr);
+	  constexpr void clear(){
+	    if (ptr){
+	      assert(destroyer);
+	      destroyer->destroy(ptr);
 	    }
+	    else {assert (!destroyer);}
+	  }
 	    
-	    constexpr ~allocated_ptr(){
-		assert(!ptr); //need to explicitly clear first, b/c needs ref to allocator!
-	    }
+	  constexpr allocated_ptr& operator=(allocated_ptr&& o){
+	    clear();
+	    ptr = o.ptr;
+	    destroyer = o.destroyer;
+	    o.ptr = nullptr;
+	    o.destroyer = nullptr;
+	    return *this;
+	  }
+	  
+	  constexpr ~allocated_ptr(){
+	    clear();
+	  }
 
 	}
     }
