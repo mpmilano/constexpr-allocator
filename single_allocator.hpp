@@ -16,75 +16,40 @@ namespace compile_time::allocator {
 	template<typename U> struct single_allocator<U, 0>{
 	    //initial allocations.  Find and track high water mark.
 
-	  struct allocated_list_node : public destructor<U>{
-	    
-		constexpr allocated_list_node() = default;
-		constexpr ~allocated_list_node() = default;
-	    single_info<U> &info;
-		unique_ptr<U> this_payload;
-		unique_ptr<allocated_list_node> next;
-	      unique_ptr<allocated_list_node> *owner;
-	    constexpr allocated_list_node(single_info<U> &info,
-					  unique_ptr<U> this_payload,
-					  unique_ptr<allocated_list_node> next,
-					  unique_ptr<allocated_list_node> *owner)
-	      :info(info),
-	       this_payload(std::move(this_payload)),
-	       next(std::move(next)),
-	       owner(owner)
-	      {}
+	  struct plain_delete : public destructor<U>{
+	    single_info<U> &this_info;
+	    	    
+	    constexpr plain_delete(single_info<U> &this_info):this_info(this_info){}
+	    constexpr ~plain_delete() = default;
 	      
 	    constexpr void destroy(U* tofree){
-	      assert(info.current_amount > 0);
-	      assert(info.current_amount < 1239);
-	      info.current_amount--;
-	      assert(this_payload.ptr == tofree);
-	      assert(owner->ptr = this);
-	      if (next){
-		next->owner = owner;
-		//this will destroy the *current object*
-		assert(owner != &next);
-		owner->operator=(std::move(next));
-	      }
-	      else{
-		//this will destroy the *current object*
-		owner->clear();
-	      }
+	      this_info.current_amount--;
+	      delete tofree;
 	    }
 	    
 	  };
 
-	  unique_ptr<allocated_list_node> allocated_list;
+	  unique_ptr<plain_delete> deleter;
 
 	    template<typename ThisInfo, typename... Args>
 	    constexpr allocated_ptr<U> alloc(ThisInfo &info, Args && ...args) {
+	      if (!deleter) deleter = new plain_delete(info);
 		auto &this_info = info.template single<U>();
 		this_info.current_amount++;
 		if (this_info.current_amount > this_info.high_water_mark){
 		    this_info.high_water_mark = this_info.current_amount;
 		}
-		allocated_list.operator=(
-		  new allocated_list_node(this_info,new U(std::forward<Args>(args)...),
-					  std::move(allocated_list),&allocated_list));
-		if (allocated_list->next){
-		    allocated_list->next->owner = &allocated_list->next;
-		}
-		return allocated_ptr<U>{allocated_list->this_payload.ptr,allocated_list.ptr};
+		return allocated_ptr<U>{
+		  new U(std::forward<Args>(args)...),
+		  deleter.ptr
+		};
 	    }
 
 	    template<typename ThisInfo>
 	    constexpr allocated_ptr<U> rewrap(U* tofree){
-		for (auto &curr = allocated_list; curr; curr = curr->next){
-		    if (curr->this_payload.ptr == tofree){
-		      return allocated_ptr<U>{tofree,curr.ptr};
-		    }
-		}
-		assert(false && "Fatal error! Could not find allocated node.");
+	      return allocated_ptr<U>{tofree,deleter.ptr};
 	    }
 
-	    constexpr void clear(){
-		allocated_list.operator=(nullptr);
-	    }
 	};
 
     	template<typename U, std::size_t amnt> struct single_allocator{

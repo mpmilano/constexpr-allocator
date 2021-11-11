@@ -42,9 +42,6 @@ namespace compile_time::allocator{
 		    return single<U>().rewrap(new_info,tofree);
 		}
 
-		constexpr void clear(){
-		    (single<T>().clear(),...);
-		}
 		
 	    };
 
