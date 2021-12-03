@@ -61,7 +61,7 @@ namespace compile_time{
 	constexpr virtual void destroy(T* t) = 0;
 	constexpr virtual ~destructor() = default;
       };
-	
+
 	template<typename T>
 	struct allocated_ptr{
 	  T* ptr{nullptr};
