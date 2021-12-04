@@ -58,8 +58,12 @@ namespace compile_time{
     namespace allocator {
 
       template<typename T> struct destructor{
+	  //DEBUG
+	  bool alive{true};
 	constexpr virtual void destroy(T* t) = 0;
-	constexpr virtual ~destructor() = default;
+	  constexpr virtual ~destructor() {
+	      alive = false;
+	  }
       };
 
 	template<typename T>
@@ -103,6 +107,7 @@ namespace compile_time{
 	  constexpr void clear(){
 	    if (ptr){
 	      assert(destroyer);
+	      assert(destroyer->alive);
 	      auto *sptr = ptr;
 	      auto *sdestroyer = destroyer;
 	      ptr = nullptr;

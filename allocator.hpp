@@ -66,7 +66,8 @@ namespace compile_time::allocator{
 	  template<typename F, F f, typename U, typename... Args>
 	  static constexpr decltype(auto) exec_ap(allocated_ptr<U> const * const, Args&& ... args){
 	    //run it the first time to see what the allocation totals are
-	    constexpr auto tic = execution_result<U,ThisInfo{}>(f).allocations.new_info;
+	    constexpr auto tic =
+		execution_result<U,ThisInfo{}>(f,std::forward<Args>(args)...).allocations.new_info;
 	    return execution_result<U,ThisInfo{tic}>{f,std::forward<Args>(args)...};
 	  }
 	  
