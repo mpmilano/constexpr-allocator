@@ -13,7 +13,6 @@ namespace compile_time::allocator{
 	struct single_info{
 	    std::size_t current_amount = 0;
 	    std::size_t high_water_mark = 0;
-	    std::size_t grand_total = 0;
 	    constexpr single_info& single(){
 		return *this;
 	    }

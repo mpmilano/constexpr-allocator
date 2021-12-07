@@ -42,7 +42,7 @@ namespace compile_time::allocator{
 		    return single<U>().rewrap(new_info,tofree);
 		}
 
-		
+		constexpr allocator() = default;
 	    };
 
 	    template<PackMember<T...> U, ThisInfo info> 

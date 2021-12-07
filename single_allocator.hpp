@@ -85,6 +85,12 @@ namespace compile_time::allocator {
 		}
 	    }
 
+	    constexpr single_allocator(const single_allocator&) = delete;
+	    constexpr single_allocator(single_allocator&&) = delete;
+	    constexpr ~single_allocator() {
+		assert(std::is_constant_evaluated() && "I'm not sure we can safely delete this");
+	    }
+
 	    template<typename... Args>
 	    constexpr allocated_ptr<U> alloc(auto&&, Args && ...args) {
 	      assert(free_list);
