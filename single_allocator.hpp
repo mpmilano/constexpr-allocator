@@ -17,31 +17,31 @@ namespace compile_time::allocator {
 	    //initial allocations.  Find and track high water mark.
 
 	  struct plain_delete : public destructor<U>{
-	    single_info<U> &this_info;
+	      single_info<U> *this_info{nullptr};
 	    	    
-	    constexpr plain_delete(single_info<U> &this_info):this_info(this_info){}
-	    constexpr ~plain_delete() = default;
+	      constexpr plain_delete() = default;
+	      constexpr ~plain_delete() = default;
 	      
 	    constexpr void destroy(U* tofree){
-	      this_info.current_amount--;
+	      this_info->current_amount--;
 	      delete tofree;
 	    }
 	    
 	  };
 
-	  unique_ptr<plain_delete> deleter;
+	  plain_delete deleter;
 
 	    template<typename ThisInfo, typename... Args>
 	    constexpr allocated_ptr<U> alloc(ThisInfo &info, Args && ...args) {
-	      if (!deleter) deleter = new plain_delete(info);
-		auto &this_info = info.template single<U>();
+		single_info<U> &this_info = info;
+		if (!deleter.this_info) deleter.this_info = &this_info;
 		this_info.current_amount++;
 		if (this_info.current_amount > this_info.high_water_mark){
 		    this_info.high_water_mark = this_info.current_amount;
 		}
 		return allocated_ptr<U>{
 		  new U(std::forward<Args>(args)...),
-		  deleter.ptr
+		  &deleter
 		};
 	    }
 
@@ -113,6 +113,6 @@ namespace compile_time::allocator {
 		    }
 		}
 	    }
-	    
+
 	};
 }

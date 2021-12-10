@@ -22,6 +22,10 @@ namespace compile_time::allocator{
 	    }
 	    constexpr single_info() = default;
 	    constexpr single_info(single_info&&) = default;
+	    constexpr void advance_to(const single_info &i){
+		current_amount = i.current_amount;
+		high_water_mark = i.high_water_mark;
+	    }
 
 	protected:
 	    constexpr single_info(const single_info&) = default;
@@ -47,6 +51,10 @@ namespace compile_time::allocator{
 
 	    constexpr std::size_t maxes() const {
 		return ((single<T>().high_water_mark) + ...);
+	    }
+
+	    constexpr void advance_to(const Info& i) {
+		(single_info<T>::advance_to(i),...);
 	    }
 
 	    constexpr Info() = default;

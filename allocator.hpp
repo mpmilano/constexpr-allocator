@@ -67,7 +67,14 @@ namespace compile_time::allocator{
 	  static constexpr decltype(auto) exec_ap(allocated_ptr<U> const * const, Args&& ... args){
 	    //run it the first time to see what the allocation totals are
 	    constexpr auto tic =
-		execution_result<U,ThisInfo{}>(f,std::forward<Args>(args)...).allocations.new_info;
+		[&]() constexpr {
+		    ThisInfo info;
+		    {
+			execution_result<U,ThisInfo{}> result{f,std::forward<Args>(args)...};
+			info.advance_to(result.allocations.new_info);
+		    }
+		    return info;
+		}();
 	    return execution_result<U,ThisInfo{tic}>{f,std::forward<Args>(args)...};
 	  }
 	  
