@@ -11,6 +11,18 @@
 
 namespace compile_time::allocator{
 
+    template<typename _T, _T _t>
+    struct constexpr_parameter{
+	using T = _T;
+	const T &t = _t;
+	constexpr constexpr_parameter() = default;
+	constexpr ~constexpr_parameter() = default;
+	constexpr constexpr_parameter(const constexpr_parameter&) = delete;
+	constexpr constexpr_parameter(constexpr_parameter&&) = delete;
+    };
+
+#define CPARAM(t) ::compile_time::allocator::constexpr_parameter<std::decay_t<decltype(t)>,t>
+
 	template<typename... T>
 	struct typespace{
 	    using ThisInfo = Info<T...>;
@@ -64,39 +76,39 @@ namespace compile_time::allocator{
 	    };
 
 	  template<typename F, F f, typename U, typename... Args>
-	  static constexpr decltype(auto) exec_ap(allocated_ptr<U> const * const, Args&& ... args){
+	  static constexpr decltype(auto) exec_ap(allocated_ptr<U> const * const, Args... args){
 	    //run it the first time to see what the allocation totals are
 	    constexpr auto tic =
 		[&]() constexpr {
 		    ThisInfo info;
 		    {
-			execution_result<U,ThisInfo{}> result{f,std::forward<Args>(args)...};
+			execution_result<U,ThisInfo{}> result{f,Args{}.t...};
 			info.advance_to(result.allocations.new_info);
 		    }
 		    return info;
 		}();
-	    return execution_result<U,ThisInfo{tic}>{f,std::forward<Args>(args)...};
+	    return execution_result<U,ThisInfo{tic}>{f,Args{}.t...};
 	  }
 	  
 	  template<typename F, F f, typename... Args>
-	  static constexpr decltype(auto) exec(Args && ... args){
+	  static constexpr decltype(auto) exec(){
 	    //trampoline to find + constrain return result
 	    using Uptr =
-		std::decay_t<decltype(f(std::declval<allocator<ThisInfo{}>&>(), std::declval<Args>()...))>;	
+		std::decay_t<decltype(f(std::declval<allocator<ThisInfo{}>&>(), std::declval<typename Args::T>()...))>;
 	    //typename std::invoke_result_t<F, allocator<ThisInfo{}>&, Args...>;
 	    Uptr *null{nullptr};
-	    return exec_ap<F,f>(null, std::forward<Args>(args)...);
+	    return exec_ap<F,f>(null, Args{}...);
 	  }
 
 	    template<typename F, typename... Args>
-	    static constexpr decltype(auto) pexec(F&&, Args&& ... args){
-		return exec<F,F{},Args...>(std::forward<Args>(args)...);
+	    static constexpr decltype(auto) pexec(F&&, Args...){
+		return exec<F,F{},Args...>();
 	    }
 
 	    template<auto f, typename... Args>
-	    static constexpr decltype(auto) cexec(Args&& ... args){
-		return exec<decltype(f),f,Args...>(std::forward<Args>(args)...);
-	    }	    
+	    static constexpr decltype(auto) cexec(){
+		return exec<decltype(f),f,Args...>();
+	    }
 
 	};
 }
