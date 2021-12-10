@@ -61,6 +61,7 @@ namespace compile_time{
 	  //DEBUG
 	  bool alive{true};
 	constexpr virtual void destroy(T* t) = 0;
+	  //constexpr virtual void share(T* t) = 0;
 	  constexpr virtual ~destructor() {
 	      alive = false;
 	  }

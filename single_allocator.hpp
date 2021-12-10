@@ -58,6 +58,7 @@ namespace compile_time::allocator {
 	  struct free_list_node : public destructor<U>{
 	      free_list_node* next {nullptr};
 	      U this_payload;
+	      std::size_t refcount{0};
 	    free_list_node ** free_list{nullptr};
 	    constexpr free_list_node() = default;
 	    constexpr free_list_node(const free_list_node&) = delete;
@@ -66,10 +67,18 @@ namespace compile_time::allocator {
 
 	    constexpr void destroy(U* _this){
 	      assert(_this == &this_payload);
-	      assert(free_list);
-	      next = *free_list;
-	      *free_list = this;
+	      if (refcount == 0){
+		  assert(free_list);
+		  next = *free_list;
+		  *free_list = this;
+	      } else --refcount;
 	    }
+
+	      constexpr void share(U* _this){
+		  assert(_this == &this_payload);
+		  ++refcount;
+	      }
+	      
 	    };
 	    
 	  free_list_node free_list_storage[amnt];
@@ -87,9 +96,7 @@ namespace compile_time::allocator {
 
 	    constexpr single_allocator(const single_allocator&) = delete;
 	    constexpr single_allocator(single_allocator&&) = delete;
-	    constexpr ~single_allocator() {
-		assert(std::is_constant_evaluated() && "I'm not sure we can safely delete this");
-	    }
+	    constexpr ~single_allocator() = default;
 
 	    template<typename... Args>
 	    constexpr allocated_ptr<U> alloc(auto&&, Args && ...args) {
@@ -102,7 +109,7 @@ namespace compile_time::allocator {
 	      */
 	      auto &selected_free_ln = *free_list;
 	      free_list = selected_free_ln.next;
-	      selected_free_ln.this_payload = U{std::forward<Args>(args)...};
+	      selected_free_ln.this_payload = U(std::forward<Args>(args)...);
 	      return allocated_ptr<U>{&selected_free_ln.this_payload,&selected_free_ln};
 	    }
 

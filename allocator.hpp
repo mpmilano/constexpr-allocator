@@ -11,17 +11,6 @@
 
 namespace compile_time::allocator{
 
-    template<typename _T, _T _t>
-    struct constexpr_parameter{
-	using T = _T;
-	const T &t = _t;
-	constexpr constexpr_parameter() = default;
-	constexpr ~constexpr_parameter() = default;
-	constexpr constexpr_parameter(const constexpr_parameter&) = delete;
-	constexpr constexpr_parameter(constexpr_parameter&&) = delete;
-    };
-
-#define CPARAM(t) ::compile_time::allocator::constexpr_parameter<std::decay_t<decltype(t)>,t>
 
 	template<typename... T>
 	struct typespace{
@@ -65,9 +54,9 @@ namespace compile_time::allocator{
 		using ret_t = U;
 		using allocator_t = allocator<info>;
 		
-		template<typename F, typename... Args>
-		constexpr execution_result(F&& f, Args&& ... args)
-		    :result(f(allocations, std::forward<Args>(args)...)){}
+		template<typename F>
+		constexpr execution_result(F&& f)
+		    :result(f(allocations)){}
 	      constexpr ~execution_result() {
 		//want to make extra sure this is empty before we try
 		//to do any allocator destruction!
@@ -75,39 +64,38 @@ namespace compile_time::allocator{
 	      }
 	    };
 
-	  template<typename F, F f, typename U, typename... Args>
-	  static constexpr decltype(auto) exec_ap(allocated_ptr<U> const * const, Args... args){
+	  template<typename F, F f, typename U>
+	  static constexpr decltype(auto) exec_ap(allocated_ptr<U> const * const){
 	    //run it the first time to see what the allocation totals are
 	    constexpr auto tic =
 		[&]() constexpr {
 		    ThisInfo info;
 		    {
-			execution_result<U,ThisInfo{}> result{f,Args{}.t...};
+			execution_result<U,ThisInfo{}> result{f};
 			info.advance_to(result.allocations.new_info);
 		    }
 		    return info;
 		}();
-	    return execution_result<U,ThisInfo{tic}>{f,Args{}.t...};
+	    return new execution_result<U,ThisInfo{tic}>{f};
 	  }
 	  
-	  template<typename F, F f, typename... Args>
+	  template<typename F, F f>
 	  static constexpr decltype(auto) exec(){
 	    //trampoline to find + constrain return result
 	    using Uptr =
-		std::decay_t<decltype(f(std::declval<allocator<ThisInfo{}>&>(), std::declval<typename Args::T>()...))>;
-	    //typename std::invoke_result_t<F, allocator<ThisInfo{}>&, Args...>;
+		std::decay_t<decltype(f(std::declval<allocator<ThisInfo{}>&>()))>;
 	    Uptr *null{nullptr};
-	    return exec_ap<F,f>(null, Args{}...);
+	    return exec_ap<F,f>(null);
 	  }
 
-	    template<typename F, typename... Args>
-	    static constexpr decltype(auto) pexec(F&&, Args...){
-		return exec<F,F{},Args...>();
+	    template<typename F>
+	    static constexpr decltype(auto) pexec(F&&){
+		return exec<F,F{}>();
 	    }
 
-	    template<auto f, typename... Args>
+	    template<auto f>
 	    static constexpr decltype(auto) cexec(){
-		return exec<decltype(f),f,Args...>();
+		return exec<decltype(f),f>();
 	    }
 
 	};
