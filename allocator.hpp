@@ -15,7 +15,7 @@ namespace compile_time::allocator{
 	constexpr virtual ~destructable() = default;
     };
     
-    template<typename T> result_pair{
+    template<typename T> struct result_pair{
 	allocator::allocated_ptr<T> result;
 	const unique_ptr<destructable> allocator;
     };
@@ -24,7 +24,7 @@ namespace compile_time::allocator{
     constexpr auto temporarily_executed(const F& f, const result_pair<T>& pf){
 	unique_ptr<fa> allocator{new fa()};
 	auto &&res = f(*allocator,*pf.result);
-	return result_pair<std::decay_t<decltype(*res.result)>>{
+	return result_pair<std::decay_t<decltype(*res)>>{
 	    std::move(res),std::move(allocator)};
     }
 
@@ -32,7 +32,7 @@ namespace compile_time::allocator{
     constexpr auto temporarily_executed(const F& f = F{}){
 	unique_ptr<fa> allocator{new fa()};
 	auto &&res = f(*allocator);
-	return result_pair<std::decay_t<decltype(*res.result)>>{
+	return result_pair<std::decay_t<decltype(*res)>>{
 	    std::move(res),std::move(allocator)};
     }
 
@@ -82,11 +82,11 @@ namespace compile_time::allocator{
 
 	    private:
 		template<typename prev_stage_result>
-		constexpr execution_result(const F& f, const allocated_ptr<prev_stage_result>& r,int)
-		    :result(f(allocations,*)){}
+		constexpr execution_result(const F& f, const allocated_ptr<prev_stage_result>& r)
+		    :result(f(allocations,*r)){}
 
 	    public:
-		constexpr execution_result(const F& f, const prev_stage_f& pf)
+		constexpr execution_result(const F& f = F{}, const prev_stage_f& pf = prev_stage_f{})
 		    :execution_result(f, pf().result){}
 		
 	      constexpr ~execution_result() {
@@ -97,15 +97,19 @@ namespace compile_time::allocator{
 	    };
 
 	    template<typename previous_stages, typename This_Stage, typename this_stage_result>
+	    static constexpr ThisInfo get_execution_info(){
+		ThisInfo info;
+		{
+		    execution_result<this_stage_result,ThisInfo{},This_Stage, previous_stages> result;
+		    info.advance_to(result.allocations.new_info);
+		}
+		return info;		
+	    }
+	    
+	    template<typename previous_stages, typename This_Stage, typename this_stage_result>
 	    using constexpr_executed = execution_result<this_stage_result,
-		ThisInfo{[]() constexpr {
-		    ThisInfo info;
-		    {
-			execution_result<this_stage_result,ThisInfo{},This_Stage, previous_stages> result;
-			info.advance_to(result.allocations.new_info);
-		    }
-		    return info;
-		}()},This_Stage,previous_stages>;
+		get_execution_info<previous_stages,This_Stage,this_stage_result>(),
+		This_Stage,previous_stages>; //*/
 
 	};
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <type_traits>
+#include <concepts>
 
 namespace compile_time{
     	template<typename T>
@@ -11,6 +12,9 @@ namespace compile_time{
 	    constexpr unique_ptr(T* ptr):ptr(ptr){}
 	    constexpr unique_ptr(const unique_ptr&) = delete;
 	    constexpr unique_ptr(unique_ptr&& o):ptr(o.ptr){o.ptr = nullptr;}
+	    
+	    template<std::derived_from<T> U>
+	    constexpr unique_ptr(unique_ptr<U> &&o):ptr(o.ptr){o.ptr = nullptr;}
 	    
 	    constexpr T& operator*(){
 		return *ptr;
@@ -67,6 +71,26 @@ namespace compile_time{
 	  }
       };
 
+	template<typename Sub, typename Super> concept subtype_destroying =
+	    requires(Super &t, destructor<Sub> &d) { t.destroy(d); };
+	
+	template<typename U, std::derived_from<U> T> requires subtype_destroying<T,U>
+	struct subclass_destructor : public destructor<U>,
+				     public destructor<T> {
+	    destructor<T> &destroyer;
+	    constexpr subclass_destructor(destructor<T> &destroyer):destroyer(destroyer){}
+	    constexpr void destroy(T* t){
+		destroyer.destroy(t);
+	    }
+	    constexpr void destroy(U* u){
+		assert(u);
+		u->destroy(destroyer);
+		delete this;
+	    }
+	    constexpr ~subclass_destructor() = default;
+	    
+	};
+
 	template<typename T>
 	struct allocated_ptr{
 	  T* ptr{nullptr};
@@ -80,6 +104,16 @@ namespace compile_time{
 	    o.ptr = nullptr;
 	    o.destroyer = nullptr;
 	  }
+
+	    template<std::derived_from<T> U>
+	    constexpr allocated_ptr(allocated_ptr<U> &&o):
+		ptr(o.ptr),
+		destroyer((o.destroyer ? 
+			   new subclass_destructor<T,U>{*o.destroyer}
+			   : nullptr)){
+		o.ptr = nullptr;
+		o.destroyer = nullptr;
+	    }
 	    
 	    constexpr T& operator*(){
 		return *ptr;
