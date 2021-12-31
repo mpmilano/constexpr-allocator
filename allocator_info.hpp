@@ -17,6 +17,8 @@ namespace compile_time::allocator{
 		return *this;
 	    }
 
+	    constexpr single_info(int i):high_water_mark(i){}
+
 	    constexpr const single_info& single() const {
 		return *this;
 	    }
@@ -55,6 +57,10 @@ namespace compile_time::allocator{
 
 	    constexpr void advance_to(const Info& i) {
 		(single_info<T>::advance_to(i),...);
+	    }
+
+	    template<PackMember<T...> U> constexpr void advance_to(const single_info<U> &i){
+		single_info<U>::advance_to(i);
 	    }
 
 	    constexpr Info() = default;

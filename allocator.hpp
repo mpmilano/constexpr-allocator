@@ -11,41 +11,29 @@
 
 namespace compile_time::allocator{
 
-    struct destructor_chain{
-	virtual constexpr ~destructor_chain() = default;
-	destructor_chain(const destructor_chain&) = delete;
-	
-	template<typename T>
-	struct single : public destructor_chain {
-	    const unique_ptr<destructor_chain> prev;
-	    const unique_ptr<T> payload;
-	    constexpr single(unique_ptr<destructor_chain> prev, unique_ptr<T> payload)
-		:prev(std::move(prev)),payload(std::move(payload)){}
-	    constexpr ~single() = default;
-	};
+    struct destructable{
+	constexpr virtual ~destructable() = default;
     };
     
     template<typename T> result_pair{
 	allocator::allocated_ptr<T> result;
-	const unique_ptr<destructor_chain> allocator;
+	const unique_ptr<destructable> allocator;
     };
     
-    template<typename fa, typename pfa, typename F, typename previous_F>
-    constexpr auto temporarily_executed(const F& f = F{}, const previous_F& pf = previous_F{}){
-	unique_ptr<pfa> previous_allocator{new pfa()};
+    template<typename fa, typename F, typename T>
+    constexpr auto temporarily_executed(const F& f, const result_pair<T>& pf){
 	unique_ptr<fa> allocator{new fa()};
-	auto rp = pf(*previous_allocator);
-	auto &&res = f(*allocator,*rp.result);
+	auto &&res = f(*allocator,*pf.result);
 	return result_pair<std::decay_t<decltype(*res.result)>>{
-	    std::move(res),
-	    new destructor_chain::single<fa>{nullptr,std::move(allocator)}};
+	    std::move(res),std::move(allocator)};
     }
 
     template<typename fa, typename F>
     constexpr auto temporarily_executed(const F& f = F{}){
 	unique_ptr<fa> allocator{new fa()};
 	auto &&res = f(*allocator);
-	return result_pair<std::decay_t<decltype(*res.result)>>{std::move(res),std::move(allocator)};
+	return result_pair<std::decay_t<decltype(*res.result)>>{
+	    std::move(res),std::move(allocator)};
     }
 
 	template<typename... T>
@@ -82,6 +70,8 @@ namespace compile_time::allocator{
 		constexpr allocator() = default;
 	    };
 
+	    using base_allocator = allocator<ThisInfo{}>;
+	    
 	    template<PackMember<T...> U, ThisInfo info, typename F, typename prev_stage_f> 
 	    struct execution_result{
 		allocator<info> allocations;
