@@ -24,8 +24,15 @@ namespace compile_time::allocator{
     constexpr auto temporarily_executed(const F& f, const result_pair<T>& pf){
 	unique_ptr<fa> allocator{new fa()};
 	auto &&res = f(*allocator,*pf.result);
+	//the previous results might be incorporated into the new
+	//results, so we should preserve the allocator if we can.
+	struct keep_allocator : destructable{
+	    const unique_ptr<destructable> old_allocator;
+	    const unique_ptr<destructable> new_allocator;
+	    
+	};
 	return result_pair<std::decay_t<decltype(*res)>>{
-	    std::move(res),std::move(allocator)};
+	    std::move(res),new keep_allocator(std::move(res.allocator),std::move(allocator))};
     }
 
     template<typename fa, typename F>
@@ -82,12 +89,16 @@ namespace compile_time::allocator{
 
 	    private:
 		template<typename prev_stage_result>
-		constexpr execution_result(const F& f, const allocated_ptr<prev_stage_result>& r)
-		    :result(f(allocations,*r)){}
+		constexpr execution_result(const F& f, result_pair<prev_stage_result>&& r)
+		    :result(f(allocations,*r.result)){
+		    //delete this b/c there's no safe way to keep it.
+		    //REMEMBER! FINAL STAGE CANNOT USE OLD REFS! MUST COPY!
+		    r.result = nullptr;
+		}
 
 	    public:
 		constexpr execution_result(const F& f = F{}, const prev_stage_f& pf = prev_stage_f{})
-		    :execution_result(f, pf().result){}
+		    :execution_result(f, pf()){}
 		
 	      constexpr ~execution_result() {
 		//want to make extra sure this is empty before we try
