@@ -19,6 +19,16 @@ namespace compile_time::allocator{
 	allocator::allocated_ptr<T> result;
 	const unique_ptr<destructable> allocator;
     };
+
+    template<typename T> struct is_result_pair : std::false_type{};
+    template<typename T> struct is_result_pair<result_pair<T>> : std::true_type{};
+    template<typename T> concept ResultPair = is_result_pair<T>::value;
+
+    template<typename T> concept AllocatorThunk = Thunk<T> && requires (const T& t) {{t()} -> ResultPair;};
+
+    template<ResultPair rp> struct result_s;
+    template<typename T> struct result_s<result_pair<T>> {using type = T;};
+    template<AllocatorThunk rp> using result = typename result_s<std::decay_t<decltype(rp{}())>>::type;
     
     template<typename fa, typename F, typename T>
     constexpr auto temporarily_executed(const F& f, const result_pair<T>& pf){
@@ -43,9 +53,31 @@ namespace compile_time::allocator{
 	    std::move(res),std::move(allocator)};
     }
 
+    	template<typename... T>
+	struct typespace;
+
+    template<typename T> struct is_typespace : public std::false_type{};
+    template<typename... T> struct is_typespace<typespace<T...>> : public std::true_type{};
+
+    template<typename T>
+    concept Typespace = is_typespace<T>::value;
+
+    //specialized actions are functions that can take Allocators of specific info
+    template<typename U, typename ts, typename T, typename ts::ThisInfo info>
+    concept SpecializedAction = Typespace<ts> &&
+	std::regular_invocable<U,typename ts::template allocator<info>&, const T&>;
+
+    //actions are functions that can take Allocators generically on their info parameters
+    template<typename U, typename ts, typename T>
+    concept Action = Typespace<ts> && SpecializedAction<U,ts,T,ts::empty_info()> &&
+	SpecializedAction<U,ts,T,ts::ThisInfo::set_all_to_constant(__COUNTER__ + 1)>;
+
 	template<typename... T>
 	struct typespace{
+	    using ts = typespace;
 	    using ThisInfo = Info<T...>;
+
+	    static constexpr ThisInfo empty_info(){return ThisInfo{};}
 
     
 	    template<ThisInfo original_info = ThisInfo{}>
@@ -79,10 +111,11 @@ namespace compile_time::allocator{
 
 	    using base_allocator = allocator<ThisInfo{}>;
 	    
-	    template<PackMember<T...> U, ThisInfo info, typename F, typename prev_stage_f> 
+	    template<PackMember<T...> U, ThisInfo info, AllocatorThunk prev_stage_f,
+		     Action<ts,result<prev_stage_f>> F>
 	    struct execution_result{
 		allocator<info> allocations;
-	      allocated_ptr<U> result;
+		allocated_ptr<U> result;
 
 		using ret_t = U;
 		using allocator_t = allocator<info>;
@@ -107,17 +140,19 @@ namespace compile_time::allocator{
 	      }
 	    };
 
-	    template<typename previous_stages, typename This_Stage, typename this_stage_result>
+	    template<AllocatorThunk previous_stages, Action<ts,result<previous_stages>> This_Stage,
+		     PackMember<T...> this_stage_result>
 	    static constexpr ThisInfo get_execution_info(){
 		ThisInfo info;
 		{
-		    execution_result<this_stage_result,ThisInfo{},This_Stage, previous_stages> result;
+		    execution_result<this_stage_result,ThisInfo{},previous_stages, This_Stage> result;
 		    info.advance_to(result.allocations.new_info);
 		}
 		return info;		
 	    }
 	    
-	    template<typename previous_stages, typename This_Stage, typename this_stage_result>
+	    template<AllocatorThunk previous_stages, Action<ts,result<previous_stages>> This_Stage,
+		     PackMember<T...> this_stage_result>
 	    using constexpr_executed = execution_result<this_stage_result,
 		get_execution_info<previous_stages,This_Stage,this_stage_result>(),
 		This_Stage,previous_stages>; //*/

@@ -34,6 +34,12 @@ constexpr auto tree_test(auto &a){
   return TREE(0,TREE(1,nullptr,nullptr),TREE(2,nullptr,nullptr));
 }
 
+template<typename T> struct just_delete : public destructor<T>{
+    ~just_delete() = default;
+    just_delete() = default;
+    void destroy(T *t) override {delete t;}
+};
+
 int main(){
 
   //dynamic test 1
@@ -55,6 +61,11 @@ int main(){
 
   //static test
   
-  constexpr static auto result = ts::pexec([](auto& a) constexpr {return allocator_actions(a);});
-  return *result.result;//*/
+  //constexpr static auto result = ts::pexec([](auto& a) constexpr {return allocator_actions(a);});
+  //return *result.result;//*/
+  constexpr auto five_f = []() constexpr {static constexpr return result_pair<int>{};};
+
+  constexpr auto aa_wrapper = [](auto &a, int) constexpr {return allocator_actions(a);};
+  using foo = ts::template constexpr_executed<decltype(five_f),decltype(aa_wrapper),double>;
+  return foo{}.asint();
 }

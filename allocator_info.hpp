@@ -63,6 +63,13 @@ namespace compile_time::allocator{
 		single_info<U>::advance_to(i);
 	    }
 
+	    static constexpr Info set_all_to_constant(std::size_t i){
+		Info inf;
+		((inf.template single<T>().current_amount = i),...);
+		((inf.template single<T>().high_water_mark = i),...);
+		return inf;
+	    }
+
 	    constexpr Info() = default;
 	    constexpr Info(Info&&) = default;
 
