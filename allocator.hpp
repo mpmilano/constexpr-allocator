@@ -76,7 +76,7 @@ namespace compile_time::allocator{
 		    }
 		    return info;
 		}();
-	    return new execution_result<U,ThisInfo{tic}>{f};
+	    return execution_result<U,ThisInfo{tic}>{f};
 	  }
 	  
 	  template<typename F, F f>

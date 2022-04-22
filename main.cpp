@@ -26,6 +26,15 @@ struct tree{
     :payload(p),
      left(std::move(left)),
      right(std::move(right)){}
+
+    constexpr tree() = default;
+    
+    constexpr tree& operator=(tree&& o){
+	payload = o.payload;
+	left.operator=(std::move(o.left));
+	right.operator=(std::move(o.right));
+	return *this;
+    }
   constexpr ~tree() = default;
 };
 
@@ -56,5 +65,8 @@ int main(){
   //static test
   
   constexpr static auto result = ts::pexec([](auto& a) constexpr {return allocator_actions(a);});
+
+  constexpr auto tree_result = typespace<tree>::pexec([](auto& a) constexpr {return tree_test(a);});
+  
   return *result.result;//*/
 }
